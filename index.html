@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>ระบบบันทึกคะแนนความประพฤติ</title>
+    
+    <link rel="manifest" id="pwa-manifest">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="transparent" id="meta-theme-color">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="บันทึกคะแนน">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2940/2940653.png">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Sarabun:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { 
+                        sans: ['Sarabun', 'sans-serif'],
+                        arabic: ['Amiri', 'serif'] 
+                    },
+                    colors: { accent: '#1e293b', surface: '#f8fafc' }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        :root { --glass-opacity: 0.15; --glass-blur: 25px; }
+
+        * { -webkit-tap-highlight-color: transparent; font-family: 'Sarabun', sans-serif; }
+        body { color: #1e293b; background-color: #0f172a; overflow-x: hidden; -webkit-user-select: none; user-select: none; }
+
+        /* Background & Animated Spheres */
+        .bg-container { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background-size: cover; background-position: center; background-attachment: fixed; transition: background-image 0.5s ease; }
+        .bg-sphere { position: absolute; filter: blur(90px); opacity: 0.65; border-radius: 50%; animation: pulse 15s infinite alternate ease-in-out; }
+        .custom-bg-overlay { position: absolute; inset: 0; background: rgba(255, 255, 255, 0); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); transition: 0.3s; }
+        @keyframes pulse { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(10%, 5%) scale(1.1); } }
+
+        /* Themes Configuration */
+        .theme-amber .sphere-1 { top: -10%; right: -5%; width: 75vw; height: 75vw; background: radial-gradient(circle, #fef3c7, #f59e0b); }
+        .theme-amber .sphere-2 { bottom: -15%; left: -10%; width: 85vw; height: 85vw; background: radial-gradient(circle, #ffedd5, #ea580c); animation-delay: -5s; }
+        .theme-amber .btn-primary { background-color: #f59e0b; color: #1e293b; } .theme-amber .text-primary { color: #ea580c; }
+        
+        .theme-blue .sphere-1 { top: -10%; right: -5%; width: 75vw; height: 75vw; background: radial-gradient(circle, #e0f2fe, #3b82f6); }
+        .theme-blue .sphere-2 { bottom: -15%; left: -10%; width: 85vw; height: 85vw; background: radial-gradient(circle, #dbeafe, #0284c7); animation-delay: -5s; }
+        .theme-blue .btn-primary { background-color: #3b82f6; color: white; } .theme-blue .text-primary { color: #3b82f6; }
+        
+        .theme-emerald .sphere-1 { top: -10%; right: -5%; width: 75vw; height: 75vw; background: radial-gradient(circle, #dcfce7, #10b981); }
+        .theme-emerald .sphere-2 { bottom: -15%; left: -10%; width: 85vw; height: 85vw; background: radial-gradient(circle, #ecfdf5, #059669); animation-delay: -5s; }
+        .theme-emerald .btn-primary { background-color: #10b981; color: white; } .theme-emerald .text-primary { color: #10b981; }
+        
+        .theme-rose .sphere-1 { top: -10%; right: -5%; width: 75vw; height: 75vw; background: radial-gradient(circle, #ffe4e6, #f43f5e); }
+        .theme-rose .sphere-2 { bottom: -15%; left: -10%; width: 85vw; height: 85vw; background: radial-gradient(circle, #fecdd3, #e11d48); animation-delay: -5s; }
+        .theme-rose .btn-primary { background-color: #f43f5e; color: white; } .theme-rose .text-primary { color: #e11d48; }
+
+        .theme-slate .sphere-1 { top: -10%; right: -5%; width: 75vw; height: 75vw; background: radial-gradient(circle, #cbd5e1, #475569); }
+        .theme-slate .sphere-2 { bottom: -15%; left: -10%; width: 85vw; height: 85vw; background: radial-gradient(circle, #e2e8f0, #334155); animation-delay: -5s; }
+        .theme-slate .btn-primary { background-color: #334155; color: white; } .theme-slate .text-primary { color: #334155; }
+
+        /* Core UI Components */
+        .glass-panel { 
+            background: rgba(255, 255, 255, var(--glass-opacity)); 
+            backdrop-filter: blur(var(--glass-blur)) saturate(180%) brightness(1.05) contrast(1.05); 
+            -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%) brightness(1.05) contrast(1.05); 
+            border: 1px solid rgba(255, 255, 255, 0.2); border-top: 1px solid rgba(255, 255, 255, 0.65); border-left: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 10px 35px -10px rgba(0, 0, 0, 0.2), inset 0 2px 20px rgba(255,255,255,0.1); 
+            transition: all 0.3s ease; 
+        }
+        .shape-card { border-radius: 24px; } .shape-btn { border-radius: 14px; } .shape-input { border-radius: 12px; }
+        .glow-text { text-shadow: 0 0 15px rgba(255,255,255,1), 0 0 30px rgba(255,255,255,1), 0 0 5px rgba(255,255,255,0.8); }
+        .text-shadow-none { text-shadow: none !important; }
+        .btn-press { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; }
+        .btn-press:active { transform: scale(0.95); filter: brightness(0.9); }
+
+        /* Form Inputs */
+        .input-field { 
+            width: 100%; padding: 14px 18px; 
+            border: 1px solid rgba(255,255,255,0.4); border-top: 1px solid rgba(255, 255, 255, 0.7);
+            background: rgba(255, 255, 255, 0.15); 
+            backdrop-filter: blur(calc(var(--glass-blur) * 0.6)) saturate(150%);
+            -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.6)) saturate(150%);
+            color: #1e293b; font-weight: 600; transition: 0.2s; box-shadow: inset 0 2px 5px rgba(0,0,0,0.05); text-align: left;
+        }
+        .input-field:focus { outline: none; background: rgba(255, 255, 255, 0.6); border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,0.3), inset 0 2px 5px rgba(0,0,0,0.05); }
+        .input-field option { background: #ffffff; color: #1e293b; }
+        .input-field:disabled { opacity: 0.6; cursor: not-allowed; }
+        
+        /* Checkbox UI for multi-select */
+        .custom-checkbox { width: 22px; height: 22px; border-radius: 6px; border: 2px solid #cbd5e1; display: inline-flex; align-items: center; justify-content: center; transition: 0.2s; }
+        .checkbox-container input:checked + .custom-checkbox { background-color: #3b82f6; border-color: #3b82f6; }
+        .checkbox-container input:checked + .custom-checkbox::after { content: '\f00c'; font-family: 'Font Awesome 6 Free'; font-weight: 900; color: white; font-size: 12px; }
+
+        /* Utilities & Animations */
+        .scroll-fine::-webkit-scrollbar { width: 4px; } .scroll-fine::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 10px; }
+        .fade-in { animation: fadeIn 0.4s ease-out; } @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .logo-pulse { animation: logo-bounce 2s infinite ease-in-out; } @keyframes logo-bounce { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+        .history-content { max-height: 0; overflow: hidden; transition: max-height 0.4s ease-in-out; }
+        .student-card-item.expanded .history-content { max-height: 800px; }
+        section { transition: none !important; transform: none !important; animation: none !important; }
+
+        /* Modals & Toasts */
+        #toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%) translateY(200%); background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); color: #1e293b; border: 1px solid rgba(0, 0, 0, 0.05); padding: 14px 24px; border-radius: 100px; z-index: 10000; transition: 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1); display: flex; align-items: center; justify-content: center; gap: 10px; white-space: nowrap; opacity: 0; visibility: hidden; font-weight: 800; }
+        #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
+        .modal-bg { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(8px); z-index: 2000; opacity: 0; pointer-events: none; transition: 0.3s; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .modal-bg.active { opacity: 1; pointer-events: auto; }
+        .modal-box { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(30px); width: 100%; max-width: 420px; padding: 28px; transform: translateY(30px); transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1); border: 1px solid rgba(255, 255, 255, 1); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border-radius: 28px; display: flex; flex-direction: column;}
+        .modal-bg.active .modal-box { transform: translateY(0); }
+        
+        /* Full Screen Selection Modal */
+        .modal-fullscreen { position: fixed; inset: 0; background: #f8fafc; z-index: 3000; transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1); display: flex; flex-direction: column;}
+        .modal-fullscreen.active { transform: translateY(0); }
+        
+        #export-canvas * { text-shadow: none !important; }
+    </style>
+</head>
+<body class="flex flex-col items-center min-h-screen pt-[max(env(safe-area-inset-top),1rem)]" id="app-body">
+    
+    <div class="bg-container" id="bg-container">
+        <div class="bg-sphere sphere-1" id="def-sphere-1"></div>
+        <div class="bg-sphere sphere-2" id="def-sphere-2"></div>
+        <div id="custom-bg-overlay" class="custom-bg-overlay hidden"></div>
+    </div>
+
+    <div id="toast"><span id="toast-icon"></span><span id="toast-message" class="text-shadow-none"></span></div>
+
+    <div id="pin-modal" class="modal-bg">
+        <div class="modal-box flex flex-col items-center justify-center">
+            <div class="w-16 h-16 rounded-full flex items-center justify-center text-3xl mb-4 bg-blue-100 text-blue-600 shadow-inner text-shadow-none">
+                <i class="fa-solid fa-lock"></i>
+            </div>
+            <h3 class="text-xl font-black text-accent mb-2 text-center w-full text-shadow-none">ใส่รหัสผ่านครูผู้สอน</h3>
+            <p class="text-[13px] text-slate-500 font-bold mb-4 text-center w-full text-shadow-none">รหัสจะถูกจำไว้ 12 ชั่วโมง</p>
+            <input type="password" id="teacher-pin-input" class="input-field shape-input text-center text-3xl tracking-[0.5em] font-black mb-5 shadow-inner" placeholder="••••" maxlength="6" inputmode="numeric" pattern="[0-9]*">
+            <div class="flex gap-3 w-full text-shadow-none">
+                <button onclick="closePinModal()" class="flex-1 flex items-center justify-center btn-press bg-slate-200 text-slate-700 font-bold py-3.5 shape-btn">ยกเลิก</button>
+                <button onclick="verifyPin()" class="flex-1 flex items-center justify-center btn-press bg-blue-600 text-white font-bold py-3.5 shape-btn shadow-lg shadow-blue-600/30">ยืนยัน</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="student-select-modal" class="modal-fullscreen">
+        <div class="bg-white p-4 shadow-sm z-10 flex items-center gap-3">
+            <button onclick="closeStudentModal()" class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 btn-press"><i class="fa-solid fa-arrow-left"></i></button>
+            <h3 class="text-lg font-black text-accent flex-1">เลือกนักเรียน</h3>
+            <button onclick="confirmStudentSelection()" class="bg-blue-600 text-white font-bold px-4 py-2 rounded-xl text-sm btn-press shadow-md">ยืนยัน</button>
+        </div>
+        <div class="p-4 bg-white border-b border-slate-100">
+            <div class="relative w-full">
+                <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
+                <input type="text" id="modal-search-student" class="w-full bg-slate-100 border-none rounded-xl py-3 pl-11 pr-4 font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="ค้นหาชื่อ..." onkeyup="filterStudentModal()">
+            </div>
+            <div class="flex justify-between items-center mt-3 px-1">
+                <span class="text-[12px] font-bold text-slate-500" id="student-select-count">เลือกแล้ว 0 คน</span>
+                <button onclick="selectAllStudentsToggle()" class="text-[12px] font-black text-blue-600" id="btn-select-all-std">เลือกทั้งหมด</button>
+            </div>
+        </div>
+        <div class="flex-1 overflow-y-auto scroll-fine p-2 space-y-1 bg-slate-50" id="modal-student-list"></div>
+    </div>
+
+    <div id="offense-select-modal" class="modal-fullscreen">
+        <div class="bg-white p-4 shadow-sm z-10 flex items-center gap-3">
+            <button onclick="closeOffenseModal()" class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 btn-press"><i class="fa-solid fa-arrow-left"></i></button>
+            <h3 class="text-lg font-black text-accent flex-1">เลือกรายการความผิด</h3>
+            <button onclick="confirmOffenseSelection()" class="bg-blue-600 text-white font-bold px-4 py-2 rounded-xl text-sm btn-press shadow-md">ยืนยัน</button>
+        </div>
+        <div class="flex-1 overflow-y-auto scroll-fine p-3 space-y-2 bg-slate-50" id="modal-offense-list"></div>
+    </div>
+
+    <main class="container mx-auto max-w-md px-6 pt-10 pb-12 flex-1 w-full flex flex-col h-full overflow-hidden text-left relative z-10">
+        
+        <section id="view-splash" class="flex flex-col items-center justify-center flex-1 min-h-[70vh] w-full select-none">
+            <div class="w-32 h-32 bg-white rounded-full shadow-2xl flex items-center justify-center mb-6 logo-pulse p-3 border border-slate-100/50 app-logo-container"></div>
+            <h1 class="text-[34px] font-black text-accent leading-none tracking-tight glow-text text-center w-full">ระบบคะแนน</h1>
+            <p class="text-[16px] font-extrabold text-slate-600 mt-2 tracking-wide opacity-90 glow-text text-center w-full app-school-name-display">กำลังโหลด...</p>
+            <div class="mt-8 flex items-center justify-center gap-2 bg-white/40 px-5 py-2.5 rounded-full border border-white/60 shadow-sm backdrop-blur-md">
+                <i class="fa-solid fa-compact-disc fa-spin text-primary text-sm"></i>
+                <span id="splash-loading-text" class="text-[13px] font-black text-slate-700">กำลังเชื่อมต่อฐานข้อมูล...</span>
+            </div>
+        </section>
+
+        <section id="view-home" class="hidden flex flex-col items-center justify-center flex-1">
+            <header class="text-center mb-10 w-full flex flex-col items-center">
+                <div class="w-24 h-24 bg-white rounded-full shadow-2xl flex items-center justify-center mb-5 relative overflow-hidden group app-logo-container logo-pulse p-2 border border-slate-100"></div>
+                <h1 class="text-[38px] font-black text-accent leading-none tracking-tight glow-text text-center w-full">บันทึกคะแนน</h1>
+                <p class="text-[15px] font-bold text-slate-600 mt-2 tracking-wide app-school-name-display opacity-90 glow-text text-center w-full">ความประพฤติ</p>
+            </header>
+
+            <div class="glass-panel shape-card w-full p-8 text-center relative flex flex-col items-center">
+                <div id="action-buttons-container" class="flex flex-col gap-3 w-full">
+                    <button onclick="switchView('view-dashboard')" class="btn-press w-full btn-primary font-black text-lg py-4.5 shape-btn shadow-xl flex items-center justify-center gap-3 text-shadow-none border border-white/20">
+                        <i class="fa-solid fa-magnifying-glass-chart text-xl"></i> เช็คคะแนน (นักเรียน)
+                    </button>
+                    <button onclick="openFormWithPin()" class="flex btn-press w-full bg-emerald-500 text-white font-black text-lg py-4.5 shape-btn shadow-xl items-center justify-center gap-3 text-shadow-none border border-white/20">
+                        <i class="fa-solid fa-user-shield text-xl"></i> บันทึกการหักคะแนน (ครู)
+                    </button>
+                    <button onclick="openSettingsView()" class="btn-press w-full bg-white/70 text-slate-700 font-bold py-3.5 shape-btn border border-white flex items-center justify-center gap-2 text-shadow-none shadow-sm mt-3">
+                        <i class="fa-solid fa-gear text-slate-500"></i> ตั้งค่าแอปพลิเคชัน
+                    </button>
+                </div>
+                
+                <div id="system-error-msg" class="hidden text-red-600 text-[14px] mt-6 font-black bg-red-50/90 backdrop-blur-md p-5 shape-card border border-red-200 text-shadow-none w-full text-left shadow-inner">
+                    <div class="flex items-center gap-2 mb-2 text-red-700 text-base"><i class="fa-solid fa-triangle-exclamation"></i><span>ไม่สามารถโหลดข้อมูลได้</span></div>
+                    <div id="error-details" class="font-bold text-[12px] text-red-500/90 leading-relaxed">กรุณาตรวจสอบการตั้งค่า URL ฐานข้อมูล</div>
+                    <button onclick="openSettingsView()" class="mt-4 text-[13px] bg-white border border-red-200 px-4 py-2.5 shape-btn text-red-600 w-full shadow-sm">ไปตั้งค่าฐานข้อมูล</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-dashboard" class="hidden flex flex-col flex-1 h-full w-full">
+            <div class="flex items-center justify-between mb-5 shrink-0 px-1">
+                <div class="flex items-center">
+                    <button class="w-12 h-12 glass-panel shape-btn flex items-center justify-center text-slate-700 mr-4 btn-press shadow-sm text-shadow-none" onclick="switchView('view-home')">
+                        <i class="fa-solid fa-arrow-left text-xl"></i>
+                    </button>
+                    <h2 class="text-[30px] font-black text-accent tracking-tighter leading-none glow-text">ตรวจสอบคะแนน</h2>
+                </div>
+            </div>
+            
+            <div class="mb-5 shrink-0 w-full px-1">
+                <div class="relative w-full">
+                    <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-500 text-lg"></i>
+                    <input type="text" id="searchStudent" class="input-field shape-input w-full pl-12 shadow-sm text-[15px]" placeholder="ค้นหาชื่อ..." onkeyup="filterDashboard()">
+                </div>
+            </div>
+            
+            <div class="overflow-y-auto scroll-fine flex-1 space-y-4 px-1 pb-10" id="dashboard-container"></div>
+        </section>
+
+        <section id="view-form" class="hidden flex flex-col flex-1 h-full w-full">
+            <div class="flex items-center justify-between mb-4 shrink-0 px-1">
+                <div class="flex items-center">
+                    <button class="w-12 h-12 glass-panel shape-btn flex items-center justify-center text-slate-700 mr-4 btn-press shadow-sm text-shadow-none" onclick="switchView('view-home')">
+                        <i class="fa-solid fa-arrow-left text-xl"></i>
+                    </button>
+                    <h2 class="text-[30px] font-black text-accent tracking-tighter leading-none glow-text">หัก/เพิ่มคะแนน</h2>
+                </div>
+            </div>
+            
+            <div class="overflow-y-auto scroll-fine flex-1 px-1">
+                <form id="behaviorForm" onsubmit="submitBatchForm(event)" class="space-y-4 pb-10">
+                    
+                    <div class="glass-panel shape-card p-5">
+                        <label class="text-[12px] font-black uppercase text-slate-700 mb-2 block tracking-widest glow-text">วันที่บันทึก</label>
+                        <input type="date" id="recordDate" class="input-field shape-input font-bold text-[15px]" required>
+                    </div>
+                    
+                    <div class="glass-panel shape-card p-5 border-l-4 border-l-blue-500">
+                        <div class="flex justify-between items-end mb-3">
+                            <label class="text-[12px] font-black uppercase text-slate-700 tracking-widest glow-text">รายชื่อนักเรียน <span class="text-blue-500">*</span></label>
+                            <span class="text-[10px] font-bold bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full" id="st-count-badge">0 คน</span>
+                        </div>
+                        <div id="selected-students-container" class="flex flex-wrap gap-2 mb-3 min-h-[40px] p-2 bg-white/30 rounded-xl border border-white/50 shadow-inner empty:hidden"></div>
+                        <button type="button" onclick="openStudentModal()" class="w-full bg-white border-2 border-dashed border-blue-300 text-blue-600 font-black py-3 rounded-xl text-[14px] flex items-center justify-center gap-2 hover:bg-blue-50 transition btn-press">
+                            <i class="fa-solid fa-user-plus"></i> เลือกรายชื่อนักเรียน
+                        </button>
+                    </div>
+
+                    <div class="glass-panel shape-card p-5 border-l-4 border-l-amber-500">
+                        <div class="flex justify-between items-end mb-3">
+                            <label class="text-[12px] font-black uppercase text-slate-700 tracking-widest glow-text">ฐานความผิด <span class="text-amber-500">*</span></label>
+                            <span class="text-[10px] font-bold bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full" id="of-count-badge">0 รายการ</span>
+                        </div>
+                        <div id="selected-offenses-container" class="space-y-2 mb-3 min-h-[40px] p-2 bg-white/30 rounded-xl border border-white/50 shadow-inner empty:hidden"></div>
+                        <button type="button" onclick="openOffenseModal()" class="w-full bg-white border-2 border-dashed border-amber-300 text-amber-600 font-black py-3 rounded-xl text-[14px] flex items-center justify-center gap-2 hover:bg-amber-50 transition btn-press">
+                            <i class="fa-solid fa-list-check"></i> เลือกความผิด / เพิ่มคะแนน
+                        </button>
+                    </div>
+
+                    <div class="glass-panel shape-card p-5">
+                        <label class="text-[12px] font-black uppercase text-slate-700 mb-2 block tracking-widest glow-text">หมายเหตุเพิ่มเติม</label>
+                        <textarea id="notesInput" class="input-field shape-input font-medium text-[14px]" rows="2" placeholder="ใส่เหตุผลเสริม..."></textarea>
+                    </div>
+
+                    <button type="submit" id="btn-submit-form" class="btn-press w-full btn-primary font-black text-xl py-4.5 shape-btn shadow-xl flex items-center justify-center gap-3 text-shadow-none mt-3 border border-white/20">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> บันทึกข้อมูล
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <section id="view-settings" class="hidden flex-1 flex flex-col h-full">
+            <div class="flex items-center justify-between mb-6 shrink-0 px-1">
+                <div class="flex items-center">
+                    <button class="w-12 h-12 glass-panel shape-btn flex items-center justify-center text-slate-700 mr-4 btn-press shadow-sm text-shadow-none" onclick="cancelSettingsAndGoBack()">
+                        <i class="fa-solid fa-arrow-left text-xl"></i>
+                    </button>
+                    <h2 class="text-[30px] font-black text-accent tracking-tighter leading-none glow-text">ตั้งค่าแอป</h2>
+                </div>
+            </div>
+            
+            <div class="overflow-y-auto scroll-fine px-1 pb-6 flex-1 space-y-4">
+                <div class="glass-panel shape-card p-6">
+                    <h3 class="text-[13px] font-black text-primary uppercase tracking-widest mb-4 flex items-center gap-2 text-shadow-none"><i class="fa-solid fa-star"></i> ระบบคะแนนความประพฤติ</h3>
+                    
+                    <label class="text-[12px] font-bold text-slate-700 glow-text mb-2 block">ชื่อโรงเรียน หรือ ชื่อระบบ</label>
+                    <input type="text" id="set-school-name" class="input-field shape-input mb-5" placeholder="ชื่อโรงเรียน หรือ ชื่อระบบ">
+                    
+                    <label class="text-[12px] font-bold text-slate-700 glow-text mb-2 block border-t border-slate-300/30 pt-4">ลิงก์ฐานข้อมูล (Google Apps Script URL)</label>
+                    <input type="text" id="set-gas-url" class="input-field shape-input mb-5" placeholder="วางลิงก์ Web App (Exec) ของห้องเรียนที่นี่...">
+
+                    <div class="border-t border-slate-300/30 pt-5">
+                        <label class="text-[12px] font-bold text-slate-700 glow-text mb-3 block">เปลี่ยนตราโลโก้</label>
+                        <input type="file" id="set-logo-upload" accept="image/*" class="hidden">
+                        <div class="flex gap-3">
+                            <button onclick="document.getElementById('set-logo-upload').click()" class="bg-white text-slate-700 font-bold px-4 py-3 shape-btn text-[13px] flex-1 border border-slate-200 shadow-sm text-shadow-none"><i class="fa-solid fa-upload mr-1"></i> อัปโหลดใหม่</button>
+                            <button onclick="clearCustomLogo()" class="bg-slate-100 text-slate-500 font-bold px-4 py-3 shape-btn text-[13px] flex-1 border border-slate-200 text-shadow-none"><i class="fa-solid fa-rotate-left mr-1"></i> ค่าเริ่มต้น</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass-panel shape-card p-6">
+                    <h3 class="text-[13px] font-black text-primary uppercase tracking-widest mb-4 flex items-center gap-2 text-shadow-none"><i class="fa-solid fa-palette"></i> ปรับแต่งธีมส่วนตัว</h3>
+                    <label class="text-[12px] font-bold text-slate-700 glow-text mb-2 block">ธีมสีหลัก</label>
+                    <select id="set-bg-theme" class="input-field shape-input cursor-pointer mb-5">
+                        <option value="theme-amber">Amber Glow (อำพัน)</option>
+                        <option value="theme-blue">Ocean Blue (ฟ้า)</option>
+                        <option value="theme-emerald">Emerald Fresh (เขียว)</option>
+                        <option value="theme-rose">Rose Quartz (ชมพู-แดง)</option>
+                        <option value="theme-slate">Slate Pro (เทา-ดำ)</option>
+                    </select>
+
+                    <label class="text-[12px] font-bold text-slate-700 glow-text mb-2 block border-t border-slate-300/30 pt-4">ภาพพื้นหลัง (Wallpaper)</label>
+                    <input type="file" id="set-bg-upload" accept="image/*" class="hidden">
+                    <div class="flex gap-3 mb-5">
+                        <button onclick="document.getElementById('set-bg-upload').click()" class="bg-white text-slate-700 font-bold px-4 py-3 shape-btn text-[13px] flex-1 border border-slate-200 shadow-sm text-shadow-none"><i class="fa-solid fa-image mr-1"></i> อัปโหลดรูปภาพ</button>
+                        <button onclick="clearCustomBackground()" class="bg-slate-100 text-slate-500 font-bold px-4 py-3 shape-btn text-[13px] flex-1 border border-slate-200 text-shadow-none"><i class="fa-solid fa-trash mr-1"></i> นำรูปออก</button>
+                    </div>
+                </div>
+            </div>
+            <div class="pt-4 shrink-0 px-1">
+                <button onclick="saveSettings()" class="btn-press w-full btn-primary font-black py-4.5 shape-btn shadow-xl text-lg flex items-center justify-center gap-3 text-shadow-none">
+                    <i class="fa-solid fa-floppy-disk"></i> บันทึกการตั้งค่า
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const DEFAULT_PREFS = { schoolName: "ระบบคะแนนความประพฤติ", schoolLogo: "ส.ธ.", customLogo: "https://cdn-icons-png.flaticon.com/512/2940/2940653.png", theme: "theme-slate", customBg: null, customBgBlur: 50, cardOpacity: 15, cardBlur: 25, customGasUrl: "" };
+        let earlyPrefs = JSON.parse(localStorage.getItem('behaviorApp_prefs')) || DEFAULT_PREFS;
+        if(!earlyPrefs.customLogo) earlyPrefs.customLogo = "https://cdn-icons-png.flaticon.com/512/2940/2940653.png";
+
+        const CONFIG = { GAS_URL: earlyPrefs.customGasUrl || "" };
+        const TEACHER_PIN = "242569"; 
+
+        const offenseList = [
+            { text: "ขาดเรียนไม่มีใบลา", value: "ขาดเรียนไม่มีใบลา", points: -10 },
+            { text: "สายแถว", value: "สายแถว", points: -3 },
+            { text: "ทำลายทรัพย์สินโรงเรียน", value: "ทำลายทรัพย์สินโรงเรียน", points: -20 },
+            { text: "ทำความดี / กู้คะแนน (+)", value: "ทำความดี/กู้คะแนน", points: 10 },
+            { text: "อื่นๆ", value: "อื่นๆ", points: 0 }
+        ];
+
+        let cachedStudents = [];
+        let selectedStudentsList = []; 
+        let selectedOffensesList = []; 
+
+        function applyPrefs() {
+            document.documentElement.style.setProperty('--glass-opacity', (earlyPrefs.cardOpacity||15) / 100);
+            document.documentElement.style.setProperty('--glass-blur', (earlyPrefs.cardBlur||25) + 'px');
+            document.getElementById('app-body').className = `flex flex-col items-center min-h-screen pt-[max(env(safe-area-inset-top),1rem)] ${earlyPrefs.theme}`;
+            document.querySelectorAll('.app-school-name-display').forEach(el => el.innerText = earlyPrefs.schoolName);
+            
+            document.querySelectorAll('.app-logo-container').forEach(container => {
+                if(earlyPrefs.customLogo) container.innerHTML = `<img src="${earlyPrefs.customLogo}" class="w-full h-full object-contain rounded-full relative z-10 p-1">`;
+            });
+            const bgContainer = document.getElementById('bg-container');
+            if(bgContainer) {
+                if(earlyPrefs.customBg) {
+                    bgContainer.style.backgroundImage = `url(${earlyPrefs.customBg})`;
+                } else {
+                    bgContainer.style.backgroundImage = 'none';
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const uploadEl = document.getElementById('set-bg-upload'); if(uploadEl) uploadEl.addEventListener('change', handleImageUpload);
+            const logoUploadEl = document.getElementById('set-logo-upload'); if(logoUploadEl) logoUploadEl.addEventListener('change', handleLogoUpload);
+            applyPrefs();
+            
+            if(CONFIG.GAS_URL) {
+                fetchStudentData();
+            } else {
+                document.getElementById('splash-loading-text').innerText = "กรุณาตั้งค่าลิงก์ฐานข้อมูล";
+                setTimeout(() => openSettingsView(), 1500);
+            }
+        });
+
+        function showToast(msg, iconClass) {
+            const t = document.getElementById('toast'); document.getElementById('toast-message').innerText = msg; document.getElementById('toast-icon').innerHTML = `<i class="${iconClass}"></i>`;
+            t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000);
+        }
+
+        function switchView(viewId) {
+            ['view-splash', 'view-home', 'view-settings', 'view-dashboard', 'view-form'].forEach(id => {
+                const el = document.getElementById(id); if(el) el.classList.toggle('hidden', id !== viewId);
+            });
+        }
+
+        function fetchStudentData() {
+            const loadingText = document.getElementById('splash-loading-text');
+            if (loadingText) loadingText.innerText = "กำลังเชื่อมต่อฐานข้อมูล...";
+            
+            fetch(CONFIG.GAS_URL + "?action=getStudents").then(res => res.json()).then(res => {
+                if(res.success) { 
+                    cachedStudents = res.data;
+                    renderDashboard(cachedStudents); 
+                    switchView('view-home'); 
+                } else throw new Error(res.error);
+            }).catch(err => {
+                document.getElementById('system-error-msg').classList.remove('hidden');
+                switchView('view-home');
+            });
+        }
+
+        function renderDashboard(students) {
+            const container = document.getElementById('dashboard-container'); container.innerHTML = '';
+            if(students.length === 0) { container.innerHTML = '<div class="w-full text-center py-10 glass-panel shape-card text-slate-500 font-bold">ไม่มีข้อมูล</div>'; return; }
+
+            students.forEach((student, index) => {
+                let borderColor = student.score <= 0 ? 'border-l-red-500' : (student.score <= 30 ? 'border-l-amber-500' : 'border-l-emerald-500');
+                let statusClass = student.score <= 0 ? 'bg-red-100 text-red-700' : (student.score <= 30 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700');
+                let statusText = student.score <= 0 ? 'วิกฤต/พักการเรียน' : (student.score <= 30 ? 'เฝ้าระวัง' : 'ปกติ');
+
+                let historyHtml = '';
+                if(student.history && student.history.length > 0) {
+                    historyHtml = `<div class="mt-4 border-t border-slate-200/50 pt-3 space-y-2">`;
+                    student.history.reverse().forEach(h => {
+                        let pts = Number(h.points); let pColor = pts > 0 ? 'text-emerald-500' : 'text-red-500';
+                        historyHtml += `<div class="flex justify-between items-start bg-white/40 p-2.5 rounded-xl border border-white/50"><div class="flex-1 pr-2"><div class="text-[13px] font-black text-accent leading-tight">${h.offense}</div><div class="text-[10px] text-slate-500 mt-0.5">${h.date}</div></div><div class="font-black text-[14px] ${pColor}">${pts}</div></div>`;
+                    });
+                    historyHtml += `</div>`;
+                }
+
+                container.innerHTML += `
+                    <div class="student-card-item glass-panel shape-card p-5 shadow-sm border-l-[5px] ${borderColor} fade-in cursor-pointer overflow-hidden transition-all duration-300" data-name="${student.name.toLowerCase()}" onclick="this.classList.toggle('expanded')">
+                        <div class="flex justify-between items-center">
+                            <h3 class="text-[17px] font-black text-accent">${student.name}</h3>
+                            <div class="w-12 h-12 rounded-full flex items-center justify-center font-black text-[18px] ${statusClass} shadow-inner">${student.score}</div>
+                        </div>
+                        <div class="flex flex-col mt-3">
+                            <div class="flex justify-between items-center text-[11px] font-bold">
+                                <span class="px-2.5 py-1 rounded ${statusClass} tracking-wide shadow-sm">${statusText}</span>
+                                <span class="text-slate-500 bg-white/70 px-2.5 py-1 rounded-lg border border-white shadow-sm"><i class="fa-solid fa-chevron-down"></i> ดูประวัติ</span>
+                            </div>
+                        </div>
+                        <div class="history-content">${historyHtml}</div>
+                    </div>`;
+            });
+        }
+
+        function filterDashboard() {
+            const q = document.getElementById('searchStudent').value.toLowerCase();
+            document.querySelectorAll('.student-card-item').forEach(item => item.style.display = item.dataset.name.includes(q) ? 'block' : 'none');
+        }
+
+        function openFormWithPin() { document.getElementById('pin-modal').classList.add('active'); }
+        function closePinModal() { document.getElementById('pin-modal').classList.remove('active'); }
+        function verifyPin() {
+            if(document.getElementById('teacher-pin-input').value === TEACHER_PIN) {
+                closePinModal(); 
+                document.getElementById('teacher-pin-input').value = "";
+                setTimeout(() => openFormView(), 200);
+            } else {
+                showToast("รหัสผ่านไม่ถูกต้อง!", "fa-solid fa-xmark text-red-400");
+                document.getElementById('teacher-pin-input').value = "";
+            }
+        }
+
+        function openFormView() { 
+            if(!document.getElementById('recordDate').value) { document.getElementById('recordDate').value = new Date().toISOString().split('T')[0]; }
+            renderSelectedStudents(); renderSelectedOffenses(); switchView('view-form'); 
+        }
+
+        function openStudentModal() {
+            const list = document.getElementById('modal-student-list'); list.innerHTML = '';
+            cachedStudents.forEach(s => {
+                const checked = selectedStudentsList.includes(s.name) ? 'checked' : '';
+                list.innerHTML += `
+                <label class="student-modal-item flex items-center justify-between p-4 bg-white rounded-xl shadow-sm border border-slate-100 mb-2 cursor-pointer" data-name="${s.name.toLowerCase()}">
+                    <div><p class="font-black text-accent text-[15px]">${s.name}</p><p class="text-[11px] font-bold text-slate-400 mt-0.5">คะแนน: ${s.score}</p></div>
+                    <div class="checkbox-container relative"><input type="checkbox" class="absolute opacity-0 w-0 h-0 st-checkbox" value="${s.name}" ${checked} onchange="updateStudentCount()"><div class="custom-checkbox"></div></div>
+                </label>`;
+            });
+            updateStudentCount(); document.getElementById('student-select-modal').classList.add('active');
+        }
+        function closeStudentModal() { document.getElementById('student-select-modal').classList.remove('active'); }
+        function filterStudentModal() {
+            const q = document.getElementById('modal-search-student').value.toLowerCase();
+            document.querySelectorAll('.student-modal-item').forEach(item => item.style.display = item.dataset.name.includes(q) ? 'flex' : 'none');
+        }
+        function updateStudentCount() { document.getElementById('student-select-count').innerText = `เลือกแล้ว ${document.querySelectorAll('.st-checkbox:checked').length} คน`; }
+        function selectAllStudentsToggle() {
+            const boxes = document.querySelectorAll('.student-modal-item[style!="display: none;"] .st-checkbox');
+            const shouldCheck = document.getElementById('btn-select-all-std').innerText === 'เลือกทั้งหมด';
+            boxes.forEach(b => b.checked = shouldCheck); updateStudentCount();
+            document.getElementById('btn-select-all-std').innerText = shouldCheck ? 'ยกเลิกทั้งหมด' : 'เลือกทั้งหมด';
+        }
+        function confirmStudentSelection() {
+            selectedStudentsList = Array.from(document.querySelectorAll('.st-checkbox:checked')).map(cb => cb.value);
+            renderSelectedStudents(); closeStudentModal();
+        }
+        function renderSelectedStudents() {
+            const c = document.getElementById('selected-students-container'); c.innerHTML = '';
+            document.getElementById('st-count-badge').innerText = `${selectedStudentsList.length} คน`;
+            selectedStudentsList.forEach(st => c.innerHTML += `<div class="bg-blue-50 text-blue-700 border border-blue-200 text-[12px] font-black px-2.5 py-1.5 rounded-lg flex items-center gap-2 shadow-sm">${st} <i class="fa-solid fa-xmark cursor-pointer text-blue-400 hover:text-red-500" onclick="removeSelectedStudent('${st}')"></i></div>`);
+        }
+        function removeSelectedStudent(name) { selectedStudentsList = selectedStudentsList.filter(s => s !== name); renderSelectedStudents(); }
+
+        function openOffenseModal() {
+            const list = document.getElementById('modal-offense-list'); list.innerHTML = '';
+            offenseList.forEach(o => {
+                const existing = selectedOffensesList.find(so => so.baseName === o.value);
+                const checked = existing ? 'checked' : '';
+                const pts = existing ? existing.points : o.points;
+                const displayInput = checked ? 'block' : 'none';
+                let extraInput = o.value === 'อื่นๆ' ? `<div class="flex items-center gap-3 mb-2"><input type="text" id="inp-desc-${o.value}" class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-[13px] font-bold text-slate-700" value="${existing?existing.desc:''}" placeholder="กรอกรายละเอียดความผิด..."></div>` : '';
+
+                list.innerHTML += `
+                <div class="p-4 bg-white rounded-xl shadow-sm border border-slate-100 mb-2">
+                    <label class="flex items-center justify-between cursor-pointer w-full">
+                        <div class="flex-1 pr-2"><p class="font-black text-accent text-[14px] leading-tight">${o.text}</p></div>
+                        <div class="checkbox-container relative shrink-0"><input type="checkbox" class="absolute opacity-0 w-0 h-0 of-checkbox" value="${o.value}" ${checked} onchange="document.getElementById('inp-container-${o.value}').style.display = this.checked ? 'block' : 'none'"><div class="custom-checkbox"></div></div>
+                    </label>
+                    <div id="inp-container-${o.value}" class="mt-3 pt-3 border-t border-slate-100" style="display: ${displayInput};">
+                        ${extraInput}
+                        <div class="flex items-center gap-3">
+                            <span class="text-[11px] font-bold text-slate-500 whitespace-nowrap">แก้ไขคะแนน:</span>
+                            <input type="number" id="inp-val-${o.value}" class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 px-3 text-[14px] font-black text-red-600 text-center" value="${pts}">
+                        </div>
+                    </div>
+                </div>`;
+            });
+            document.getElementById('offense-select-modal').classList.add('active');
+        }
+        function closeOffenseModal() { document.getElementById('offense-select-modal').classList.remove('active'); }
+        function confirmOffenseSelection() {
+            let tempSelections = [];
+            document.querySelectorAll('.of-checkbox:checked').forEach(cb => {
+                const baseName = cb.value; const pts = document.getElementById('inp-val-'+baseName).value;
+                let desc = '', finalName = baseName;
+                if (baseName === 'อื่นๆ') {
+                    desc = document.getElementById('inp-desc-'+baseName).value.trim();
+                    finalName = `อื่นๆ (${desc})`;
+                }
+                tempSelections.push({ baseName: baseName, name: finalName, points: pts, desc: desc });
+            });
+            selectedOffensesList = tempSelections; renderSelectedOffenses(); closeOffenseModal();
+        }
+        function renderSelectedOffenses() {
+            const c = document.getElementById('selected-offenses-container'); c.innerHTML = '';
+            document.getElementById('of-count-badge').innerText = `${selectedOffensesList.length} รายการ`;
+            selectedOffensesList.forEach(of => {
+                c.innerHTML += `<div class="bg-white border border-slate-200 text-[13px] font-black p-2.5 rounded-lg flex items-center justify-between shadow-sm"><div class="text-accent truncate pr-2">${of.name}</div><div class="flex items-center gap-2 shrink-0"><span class="px-2 py-0.5 rounded font-black bg-red-50 text-red-600">${of.points}</span> <i class="fa-solid fa-xmark cursor-pointer text-slate-300 ml-1" onclick="removeSelectedOffense('${of.baseName}')"></i></div></div>`;
+            });
+        }
+        function removeSelectedOffense(baseName) { selectedOffensesList = selectedOffensesList.filter(o => o.baseName !== baseName); renderSelectedOffenses(); }
+
+        async function submitBatchForm(e) {
+            e.preventDefault();
+            if(selectedStudentsList.length === 0 || selectedOffensesList.length === 0) return showToast("กรุณาเลือกข้อมูลให้ครบ", "fa-solid fa-triangle-exclamation text-amber-400");
+            
+            const btn = document.getElementById('btn-submit-form'); const origHTML = btn.innerHTML;
+            btn.disabled = true; btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> กำลังส่งข้อมูล...`;
+            
+            let recordsPayload = [];
+            for(let stName of selectedStudentsList) {
+                for(let off of selectedOffensesList) {
+                    recordsPayload.push({ studentName: stName, offense: off.name, points: off.points, notes: document.getElementById('notesInput').value, date: document.getElementById('recordDate').value });
+                }
+            }
+            
+            try {
+                const res = await fetch(CONFIG.GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'saveBatchRecords', records: recordsPayload }) });
+                const data = await res.json();
+                btn.innerHTML = origHTML; btn.disabled = false;
+                if(data.success) {
+                    showToast(`บันทึกเรียบร้อย`, 'fa-solid fa-check text-emerald-400');
+                    selectedStudentsList = []; selectedOffensesList = []; renderSelectedStudents(); renderSelectedOffenses();
+                    fetchStudentData();
+                } else { showToast(`เกิดข้อผิดพลาด`, "fa-solid fa-triangle-exclamation text-red-400"); }
+            } catch(e) { btn.innerHTML = origHTML; btn.disabled = false; showToast(`เซิร์ฟเวอร์ขัดข้อง`, "fa-solid fa-triangle-exclamation text-red-400"); }
+        }
+
+        function openSettingsView() { 
+            document.getElementById('set-school-name').value = earlyPrefs.schoolName; 
+            document.getElementById('set-bg-theme').value = earlyPrefs.theme;
+            document.getElementById('set-gas-url').value = earlyPrefs.customGasUrl || "";
+            switchView('view-settings'); 
+        }
+        function cancelSettingsAndGoBack() { applyPrefs(); switchView('view-home'); }
+
+        function handleImageUpload(e) { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (ev) => { earlyPrefs.customBg = ev.target.result; applyPrefs(); showToast('เปลี่ยนรูปสำเร็จ', 'fa-solid fa-image'); }; reader.readAsDataURL(file); }
+        function clearCustomBackground() { earlyPrefs.customBg = null; applyPrefs(); showToast('นำรูปออกสำเร็จ', 'fa-solid fa-trash'); }
+        function handleLogoUpload(e) { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (ev) => { earlyPrefs.customLogo = ev.target.result; applyPrefs(); showToast('เปลี่ยนโลโก้สำเร็จ', 'fa-solid fa-check'); }; reader.readAsDataURL(file); }
+        function clearCustomLogo() { earlyPrefs.customLogo = "https://cdn-icons-png.flaticon.com/512/2940/2940653.png"; applyPrefs(); showToast('ใช้โลโก้เริ่มต้น', 'fa-solid fa-rotate-left'); }
+
+        function saveSettings() {
+            earlyPrefs.schoolName = document.getElementById('set-school-name').value.trim() || DEFAULT_PREFS.schoolName; 
+            earlyPrefs.theme = document.getElementById('set-bg-theme').value;
+            earlyPrefs.customGasUrl = document.getElementById('set-gas-url').value.trim();
+            localStorage.setItem('behaviorApp_prefs', JSON.stringify(earlyPrefs)); 
+            CONFIG.GAS_URL = earlyPrefs.customGasUrl;
+            applyPrefs(); showToast('บันทึกสำเร็จ', 'fa-solid fa-check'); 
+            
+            if(CONFIG.GAS_URL) { fetchStudentData(); } else { switchView('view-home'); }
+        }
+    </script>
+</body>
+</html>
